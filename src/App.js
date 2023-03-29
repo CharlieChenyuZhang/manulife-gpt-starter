@@ -52,6 +52,11 @@ const Category = styled.div`
   margin-top: 15px;
 `;
 
+const UserInputContainer = styled.div`
+  display: flex;
+  margin-bottom: 100px;
+`;
+
 const configuration = new Configuration({
   apiKey: process.env.REACT_APP_OPENAI_API_KEY,
 });
@@ -60,24 +65,57 @@ const openai = new OpenAIApi(configuration);
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [userinput, setUserInput] = useState("");
-  const [gptResp, setGptResp] = useState("");
+  const [userInput, setUserInput] = useState("");
+  const [gptResp, setGptResp] = useState([""]);
+  const [messageList, setMessageList] = useState([
+    {
+      role: "system",
+      content: `You are a helpful assistant that helps me to purchase a Manulife Health and Insurance Product. You need to gather informaiton about my age, first and last name. Then, ask gather a few yes/no questions about my health to see if I have any high blood pressure, TIA. 
+        """
+        Make sure you ask them one at a time. Start with the following sentence. Hello, I am a licensed insurance advisor from Manulife.`,
+    },
+  ]);
 
-  const template = `
-      Act as a sales agent to help me as your customer figure out the Health & Dental insurance product at Manulife. Your task is to gather some of my information including age, first and last name. Ask those questions one my one. Start with the following sentence. Hello, I am a licensed insurance advisor from Manulife.`;
-
-  async function onSubmit() {
+  async function onSubmit(userInput) {
+    // console.log("messageList", messageList);
+    // console.log("userInput", userInput);
     try {
       try {
         // it saved the previous convo between the AI and bot
         setIsLoading(true);
-        let completion = await openai.createCompletion({
-          model: "text-davinci-003",
-          prompt: template,
-          temperature: 0.7,
-          max_tokens: 2000,
+        let newMessageList = messageList;
+        if (userInput) {
+          newMessageList = [
+            ...messageList,
+            {
+              role: "user",
+              content: userInput,
+            },
+          ];
+        }
+
+        setMessageList(newMessageList);
+        console.log("newMessageList", newMessageList);
+        let completion = await openai.createChatCompletion({
+          model: "gpt-3.5-turbo",
+          messages: newMessageList,
         });
-        setGptResp(completion.data.choices[0].text);
+        setGptResp([
+          ...gptResp,
+          userInput && "<b>User:</b> <br>" + userInput,
+          "<b>ChatGPT Agent:</b> <br>" +
+            completion.data.choices[0].message.content,
+        ]);
+
+        newMessageList = [
+          ...messageList,
+          {
+            role: "assistant",
+            content: completion.data.choices[0].message.content,
+          },
+        ];
+
+        setMessageList(newMessageList);
       } catch (error) {
         setIsLoading(false);
         // Consider adjusting the error handling logic for your use case
@@ -101,13 +139,39 @@ const App = () => {
   return (
     <div>
       <div className="container">
-        <Header>Manulife Demo</Header>
+        <Header>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <img
+              style={{ width: "200px", height: "150px" }}
+              src="./manulife.jpg"
+            ></img>
+            <h1 style={{ marginLeft: "20px" }}>ManuBot</h1>
+          </div>
+        </Header>
+        <Header></Header>
 
         <WaitListContainer>
+          {gptResp.map((each) => {
+            console.log("each", each);
+            return (
+              <div
+                style={{ width: "100%", marginTop: "20px" }}
+                dangerouslySetInnerHTML={{
+                  __html: each,
+                }}
+              />
+            );
+          })}
+
+          {isLoading && <CircularProgress style={{ marginTop: "50px" }} />}
+        </WaitListContainer>
+
+        <UserInputContainer>
           <Box sx={{ display: "flex", alignItems: "flex-end" }}>
             <AccountCircle sx={{ color: "action.active", mr: 1, my: 0.5 }} />
             <TextField
               id="input-with-sx"
+              fullWidth
               label="user input"
               variant="standard"
               onChange={(e) => {
@@ -118,19 +182,17 @@ const App = () => {
 
           <Button
             onClick={async () => {
-              await onSubmit();
+              // first update the
+
+              setGptResp([...gptResp, "<b>User:</b> <br>" + userInput]);
+
+              await onSubmit(userInput);
               setIsLoading(false);
             }}
           >
-            start a quote
+            send
           </Button>
-
-          {!isLoading ? (
-            <div dangerouslySetInnerHTML={{ __html: gptResp }} />
-          ) : (
-            <CircularProgress style={{ marginTop: "50px" }} />
-          )}
-        </WaitListContainer>
+        </UserInputContainer>
       </div>
     </div>
   );
