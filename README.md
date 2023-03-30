@@ -16,3 +16,7 @@ step 3: run the following script to run
 ```
 npm run start
 ```
+
+# demo
+
+![final demo](./demo.pdf)
